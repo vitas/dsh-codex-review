@@ -1,5 +1,7 @@
 # dsh-codex-review
 
+Announced in the DeepSeek Harness community: [Show Your Plugins! #8596](https://github.com/deepseek-ai/deepseek-harness/discussions/8596).
+
 A deterministic `/review` command for DeepSeek Harness: it sends the current
 change set to a reviewer subagent pinned to a route you name — by default the
 subscription-backed `openai-codex` route.
