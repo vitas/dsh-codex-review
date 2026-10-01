@@ -1,8 +1,13 @@
 # dsh-codex-review
 
-A deterministic `/review` command for DeepSeek Harness: it starts a reviewer
-subagent pinned to a route you name — by default the subscription-backed
-`openai-codex` route — waits for it, and hands the report back to the session.
+A deterministic `/review` command for DeepSeek Harness: it sends the current
+change set to a reviewer subagent pinned to a route you name — by default the
+subscription-backed `openai-codex` route.
+
+By default the reviewer is one continuing session per chat: the first `/review`
+opens it, every later one hands it the next revision, and the report comes back
+as a message in the conversation. Set `conversation: fresh` for a one-shot child
+whose report is returned as the command's own result instead.
 
 ## Why this exists
 
@@ -51,15 +56,20 @@ command result — a declared route with no credentials, or an unknown model id.
 
 ## Configuration
 
-Every field lives in the row's `config`, so it belongs in your profile's
-`cordis.patch.yml` (see [`cordis.patch.yml`](cordis.patch.yml) for the shipped
-defaults and the commented rationale):
+Two writers touch this row. In the Web UI, open **Plugins → dsh-codex-review**:
+the card picks the route and the reviewer model (its list is the running
+composition's own model catalog, so subscription models a route plugin
+registered appear there too), the memory mode, the reasoning effort, and the
+command name. The same fields belong in your profile's `cordis.patch.yml` (see
+[`cordis.patch.yml`](cordis.patch.yml) for the shipped defaults and the commented
+rationale):
 
 | field | default | meaning |
 | --- | --- | --- |
 | `backend` | `spawn` | subagent backend: `spawn` (fresh in-process child), `fork` (inherits this conversation), or a plugin-provided one such as `codex` |
 | `provider` | `openai-codex` | LLM route the reviewer is pinned to |
 | `model` | `gpt-5.6-sol` | model id on that route |
+| `conversation` | `shared` | `shared` keeps one reviewer session per chat that remembers earlier reviews; `fresh` starts a one-shot reviewer per call |
 | `reasoningEffort` | `null` | one of `off`…`max`, or `null` to let the route decide |
 | `childMaxDepth` | `null` | `0` forbids the reviewer from delegating further; `null` sends nothing (safe for backends without the `depthLimit` capability) |
 | `persona` | `null` | per-child persona text, if the backend supports it |
@@ -76,16 +86,40 @@ merged.** When you override one field, restate the ones you want to keep.
   per-turn or per-tool-call review is a different feature with a different cost
   profile (one model call per turn, or per tool call).
 - **No fixing.** The reviewer reads and reports; the main agent implements.
-- **No credentials, no client UI, no runtime dependencies.** Anything that
-  authenticates stays the route's business.
-- **No conversation inherited** with the default `spawn` backend: the reviewer
-  sees the repository, not the argument that produced it. That is the point;
-  use `backend: fork` when you want the opposite.
+- **No credentials and no runtime dependencies.** Anything that authenticates
+  stays the route's business.
+- **No parent conversation inherited** with the default `spawn` backend: the
+  reviewer sees the repository and its own earlier reviews, not the argument that
+  produced the change. That is the point; use `backend: fork` when you want the
+  opposite.
+
+## Reviewer memory, and why the report is a message
+
+`conversation: shared` is built on DSH's own *continuable* children, not on a
+store of this plugin's: the first `/review` calls
+`subagents.startContinuable`, and every later one finds that child again through
+the durable child catalog (`subagents.listChildren`) and hands it the prompt with
+`sendMessage`. Three consequences worth knowing:
+
+- The command's own result is a **receipt**, not the review. The child answers
+  into the conversation — which is what makes the review visible to the main
+  agent. `conversation: fresh` is the mode that awaits the child and returns the
+  report as the command result.
+- The memory survives a host restart: a child that has gone idle is cold-resumed
+  from its own durable session by the delivery itself, so the reviewer still
+  knows what it flagged last time.
+- `/review` continues the newest `reviewer`-labelled continuable child of the
+  session, and there is no reset yet. To start over, run one review with
+  `conversation: fresh`, or open a new chat.
+
+Each later prompt is shorter and asks for the delta: what was fixed, what is
+still open, what is new.
 
 ## Verification
 
 ```bash
-npm run check   # syntax of every module
+npm run build   # esbuild → lib/client.js, the browser card; ship it, the host never builds it
+npm run check   # syntax of every module + tsc --noEmit
 npm test        # node:test, no test dependencies
 ```
 

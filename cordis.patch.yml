@@ -6,6 +6,12 @@
 # (`- id: codex-review`) and its `config` REPLACES this one wholesale — a
 # patch's `config` is not deep-merged, so restate every field you want to keep.
 #
+# This row also has a settings card on the Plugins page (see `src/client/`), which
+# writes into the same row. A card edit replaces this whole `config` with the
+# fields the card drew plus the schema defaults — so a field set only here and
+# absent from the schema (`childMaxDepth`, `persona`) reverts to its default after
+# a card edit. Everything else survives because the schema restates it.
+#
 # The reviewer is pinned by `provider` + `model` through the subagent service's
 # `agentOptions`, NOT by the session's route. `openai-codex` is the
 # subscription-backed ChatGPT route; if another plugin owns that route (for
@@ -31,12 +37,19 @@
         # The reviewer's route. Deliberately not the session's own route: the
         # model that wrote the change is the worst judge of it.
         provider: openai-codex
-        # Models on the openai-codex route in this build: gpt-5.3-codex-spark
-        # (text only), gpt-5.5, gpt-5.6-luna, gpt-5.6-terra, gpt-5.6-sol,
-        # gpt-6-astra, gpt-6-luna, gpt-6-sol. Run the Models page (or
-        # --dump-config) once after installing the route provider if a call
-        # reports an unknown model id.
+        # Models the account provider registers: gpt-6.1-sol, gpt-6-astra,
+        # gpt-6-luna, gpt-6-sol, gpt-5.6-luna, gpt-5.6-sol, gpt-5.6-terra,
+        # gpt-5.5, gpt-5.4, gpt-5.3-codex-spark (text only). Which of them an
+        # account may actually call is the account's business, so the settings
+        # card offers this list and still accepts a typed id.
         model: gpt-5.6-sol
+        # Reviewer memory across calls in one chat. `shared` opens one continuable
+        # reviewer child per session and hands it every later review, so it
+        # remembers the revisions it already reviewed; its answer arrives in the
+        # conversation and the command result is only a receipt. `fresh` runs a
+        # one-shot reviewer per call and renders the report as the command's own
+        # result, with no memory.
+        conversation: shared
         # null leaves the effort to the route; otherwise one of
         # off, minimal, low, medium, high, xhigh, max.
         reasoningEffort: null

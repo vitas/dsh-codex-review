@@ -51,6 +51,42 @@ export function buildPrompt(config, focus) {
 }
 
 /**
+ * Build the prompt for a review that continues an earlier one in the same
+ * reviewer session.
+ *
+ * The child already carries the standing instruction and the earlier report, so
+ * this is deliberately shorter than {@link buildPrompt} — and it asks for the one
+ * thing a fresh reviewer could never give: what moved since last time.
+ *
+ * @param config - resolved configuration.
+ * @param focus - the raw text typed after `/review` (may be empty).
+ * @returns the prompt text.
+ */
+export function buildFollowupPrompt(config, focus) {
+  const lines = [];
+  lines.push("Review the current change set again, in the same role as before.");
+  lines.push("");
+  lines.push("Re-establish the change set first; the working tree has moved since your last review:");
+  if (config.statusCommand) lines.push(`  ${config.statusCommand}`);
+  if (config.diffCommand) lines.push(`  ${config.diffCommand}`);
+  lines.push("Then read the changed files in full before judging them.");
+  lines.push("");
+  if (focus) {
+    lines.push("The user asked you to focus on:");
+    lines.push(focus);
+  } else {
+    lines.push("The user asked for a review of the current change set as a whole.");
+  }
+  lines.push("");
+  lines.push("You reviewed this repository earlier in this session, so the report must say what is");
+  lines.push("new: open with what changed since your previous review (fixed, still open, newly");
+  lines.push("introduced, no longer reachable), then give any new findings in the usual order.");
+  lines.push("Do not repeat a finding that is unchanged except to confirm it is still open, and do");
+  lines.push("not re-derive what you already established.");
+  return lines.join("\n");
+}
+
+/**
  * Join the text blocks of a child result into one string.
  * @param output - the result's content blocks.
  * @returns the concatenated text ("" when there is none).

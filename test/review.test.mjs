@@ -50,6 +50,14 @@ function invocation(rawInput = "", overrides = {}) {
   };
 }
 
+/**
+ * The one-shot path is opt-in: `shared` is the shipped default, so a test that
+ * wants the awaited child has to say so.
+ */
+function fresh(overrides = {}) {
+  return resolveConfig({ conversation: "fresh", ...overrides });
+}
+
 test("registers one command with the configured name and hint", () => {
   const ctx = fakeContext();
   apply(ctx, { command: "critique", description: "critique it", inputHint: "[x]" });
@@ -63,7 +71,7 @@ test("registers one command with the configured name and hint", () => {
 
 test("spawns the pinned route on the configured backend", async () => {
   const ctx = fakeContext();
-  const result = await runReview(ctx, resolveConfig({}), invocation("src/auth"));
+  const result = await runReview(ctx, fresh(), invocation("src/auth"));
   assert.equal(result.kind, "success");
   assert.equal(result.text, "Looks fine to me.");
   const [call] = ctx.calls;
@@ -77,29 +85,29 @@ test("spawns the pinned route on the configured backend", async () => {
 
 test("a configured effort is passed through, null is not", async () => {
   const withEffort = fakeContext();
-  await runReview(withEffort, resolveConfig({ reasoningEffort: "high" }), invocation());
+  await runReview(withEffort, fresh({ reasoningEffort: "high" }), invocation());
   assert.equal(withEffort.calls[0].request.agentOptions.reasoningEffort, "high");
 
   const withoutEffort = fakeContext();
-  await runReview(withoutEffort, resolveConfig({}), invocation());
+  await runReview(withoutEffort, fresh(), invocation());
   assert.equal("reasoningEffort" in withoutEffort.calls[0].request.agentOptions, false);
 });
 
 test("maxDepth and persona are only sent when configured", async () => {
   const bare = fakeContext();
-  await runReview(bare, resolveConfig({}), invocation());
+  await runReview(bare, fresh(), invocation());
   assert.equal("maxDepth" in bare.calls[0].request, false);
   assert.equal("persona" in bare.calls[0].request, false);
 
   const full = fakeContext();
-  await runReview(full, resolveConfig({ childMaxDepth: 0, persona: "You are terse." }), invocation());
+  await runReview(full, fresh({ childMaxDepth: 0, persona: "You are terse." }), invocation());
   assert.equal(full.calls[0].request.maxDepth, 0);
   assert.equal(full.calls[0].request.persona, "You are terse.");
 });
 
 test("a start failure is reported, not thrown", async () => {
   const ctx = fakeContext({ start: async () => { throw new Error("provider not registered"); } });
-  const result = await runReview(ctx, resolveConfig({}), invocation());
+  const result = await runReview(ctx, fresh(), invocation());
   assert.equal(result.kind, "error");
   assert.match(result.text, /could not start/i);
   assert.match(result.text, /provider not registered/);
@@ -117,7 +125,7 @@ test("a non-completed child becomes an error carrying partial text", async () =>
       dispose: async () => {},
     }),
   });
-  const result = await runReview(ctx, resolveConfig({}), invocation());
+  const result = await runReview(ctx, fresh(), invocation());
   assert.equal(result.kind, "error");
   assert.match(result.text, /max-tokens/);
   assert.match(result.text, /half a review/);
@@ -131,7 +139,7 @@ test("an empty review is an error rather than a silent success", async () => {
       dispose: async () => {},
     }),
   });
-  const result = await runReview(ctx, resolveConfig({}), invocation());
+  const result = await runReview(ctx, fresh(), invocation());
   assert.equal(result.kind, "error");
   assert.match(result.text, /no text/i);
 });
@@ -145,7 +153,7 @@ test("the child is disposed even when the result rejects", async () => {
       dispose: async () => { disposed = true; },
     }),
   });
-  const result = await runReview(ctx, resolveConfig({}), invocation());
+  const result = await runReview(ctx, fresh(), invocation());
   assert.equal(result.kind, "error");
   assert.match(result.text, /child crashed/);
   assert.equal(disposed, true);

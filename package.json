@@ -1,18 +1,23 @@
 {
   "name": "dsh-codex-review",
-  "version": "0.1.0",
-  "description": "A deterministic /review command for DeepSeek Harness: spawns a reviewer subagent pinned to a subscription-backed Codex model.",
+  "version": "0.2.0",
+  "description": "A deterministic /review command for DeepSeek Harness: a reviewer subagent pinned to a subscription-backed Codex model, with a settings card and one reviewer session per chat.",
   "type": "module",
   "main": "./index.mjs",
   "exports": {
     ".": "./index.mjs",
+    "./client": "./lib/client.js",
     "./config": "./config.mjs",
-    "./review": "./review.mjs"
+    "./review": "./review.mjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
   },
   "files": [
     "index.mjs",
     "config.mjs",
     "review.mjs",
+    "src/host/index.js",
+    "lib/client.js",
     "cordis.patch.yml",
     "README.md",
     "CHANGELOG.md",
@@ -22,12 +27,23 @@
     "node": ">=22"
   },
   "scripts": {
-    "check": "node --check index.mjs && node --check config.mjs && node --check review.mjs",
+    "build": "node scripts/build-client.mjs",
+    "prepack": "node scripts/build-client.mjs",
+    "check": "node --check index.mjs && node --check config.mjs && node --check review.mjs && node --check src/host/index.js && tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.mjs\""
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-plugins",
+        "@deepseek-ai/dsh-client-ui-plugin-manager"
+      ]
     }
   },
   "keywords": [
@@ -38,5 +54,19 @@
     "review",
     "subagent"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": ">=3.18.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/schemastery": "^3.18.4",
+    "@types/react": "^18.3.31",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.9.3"
+  }
 }
