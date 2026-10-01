@@ -32,8 +32,10 @@ stance (report, never edit a file), a search order (correctness, failure
 handling, contracts, security, concurrency and state), and an evidence bar (a
 claim you could not verify is a question, not a finding) — and the prompt tells
 it how to find something to judge: the change set as it stands, untracked files
-included; the newest commit when the tree is clean; the plausibly touched files
-when the workspace is not a Git repository at all.
+included; the newest commit when the tree is clean; and, when the workspace is not
+a Git repository at all, the repositories inside it that report changes — a
+session workspace is often a directory of checkouts, and reading all of them is
+not a review.
 
 Anything you type after the command narrows **what to judge**; it never replaces
 the brief, and it never narrows what the reviewer reads.

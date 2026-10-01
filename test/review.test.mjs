@@ -172,6 +172,8 @@ test("prompt carries the reviewer framing, the commands, and the focus", () => {
   assert.match(prompt, /Untracked files/, "untracked work counts as part of the change set");
   assert.match(prompt, /show --stat HEAD/, "a clean tree falls back to the newest commit");
   assert.match(prompt, /not a Git repository/, "a non-repo workspace is handled, not abandoned");
+  assert.match(prompt, /ls -d \*\//, "a workspace that is a directory of repos is listed, not toured");
+  assert.match(prompt, /git -C <dir> status --short/, "the multi-repo case has a concrete recipe");
 
   const bare = buildPrompt(resolveConfig({}), "");
   assert.match(bare, /as a whole/);

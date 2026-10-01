@@ -12,9 +12,11 @@
 - The prompt no longer assumes there is a diff to read. It establishes what to
   review in three steps: the change set as it stands, with untracked files
   called out because a diff never shows them; the newest commit when the tree is
-  clean; the plausibly touched files, named, when the workspace is not a Git
-  repository. A review with nothing to review says so in one line instead of
-  reviewing unrelated code to have something to report.
+  clean; and, when the workspace is not a Git repository, the repositories inside
+  it that report changes — a session workspace is often a directory of
+  checkouts, so the reviewer lists them and picks the ones with work instead of
+  touring the tree. A review with nothing to review says so in one line rather
+  than reviewing unrelated code to have something to report.
 - Focus text states its own limit: it narrows what to judge, not what to read,
   and a focus naming something absent is reported rather than obeyed.
 - The `conversation: shared` follow-up prompt carries the same clean-tree and

@@ -34,8 +34,12 @@ export function buildPrompt(config, focus) {
   lines.push("2. If the working tree is clean, review the newest commit instead, plus any commits");
   lines.push("   this branch carries that its base does not:");
   lines.push("     git --no-pager show --stat HEAD   then   git --no-pager show HEAD");
-  lines.push("3. If this is not a Git repository, review the files the change most plausibly");
-  lines.push("   touched, and name the paths you reviewed in one line.");
+  lines.push("3. If this is not a Git repository, it is probably a directory of them — a session");
+  lines.push("   workspace often is. List them, then check each one for work:");
+  lines.push("     ls -d */   then   git -C <dir> status --short");
+  lines.push("   Review the ones that report changes, starting with the one the focus names, if any.");
+  lines.push("   If none of them has changes, say so in one line and name the directories you");
+  lines.push("   checked — do not tour the tree for something to report.");
   lines.push("");
   lines.push("Read every changed file in full before judging it: a diff hides the context that");
   lines.push("decides whether a change is correct.");
