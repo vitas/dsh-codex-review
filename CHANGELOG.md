@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0
+
+- **A bare `/review` is now a complete request.** The shipped `instruction` —
+  and the `DEFAULT_INSTRUCTION` a row falls back to — grew from three sentences
+  into a real brief: the stance (report, never edit a file, never run a command
+  that changes the repository), the order to hunt in (correctness, failure
+  handling, contracts, security and data, concurrency and state), and the
+  evidence bar (verify in the file, the caller and the test; an unverified claim
+  is a question, not a finding).
+- The prompt no longer assumes there is a diff to read. It establishes what to
+  review in three steps: the change set as it stands, with untracked files
+  called out because a diff never shows them; the newest commit when the tree is
+  clean; the plausibly touched files, named, when the workspace is not a Git
+  repository. A review with nothing to review says so in one line instead of
+  reviewing unrelated code to have something to report.
+- Focus text states its own limit: it narrows what to judge, not what to read,
+  and a focus naming something absent is reported rather than obeyed.
+- The `conversation: shared` follow-up prompt carries the same clean-tree and
+  non-repo fallbacks.
+
 ## 0.2.0
 
 - **Settings card** on the Plugins page: route, reviewer model, memory mode,

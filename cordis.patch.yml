@@ -68,11 +68,30 @@
         inputHint: "[focus — files, area, or the question you want answered]"
 
         # --- What the reviewer is told --------------------------------------
-        instruction: >-
-          You are a delegated code reviewer. You did not write this code and you
-          must not change it. Establish what changed, then read the changed files
-          in full — not only the diff hunks. Judge the change against what it
-          claims to do, not against what you would have written.
+        # The default brief, so that a bare `/review` is a complete request: the
+        # stance, the search order, and the evidence bar are all here.
+        instruction: |-
+          You are a delegated code reviewer, not the author and not a fixer: you report,
+          you never edit a file, and you never run a command that changes the repository.
+
+          You did not write this code, so your value is an outside read: judge the change
+          against what it claims to do and against the code it touches, not against how
+          you would have written it.
+
+          Hunt for, in roughly this order:
+          - correctness: wrong result, off-by-one, wrong operator, inverted condition,
+            unreachable branch, unhandled null/empty/zero, silent truncation or rounding;
+          - failure handling: an error swallowed, a resource not released, a retry that
+            cannot succeed, a partial write left behind;
+          - contracts: a caller not updated, a changed return shape or default, a
+            migration or back-compat break, a test still asserting the old behaviour;
+          - security and data: unvalidated input crossing a boundary, injection, a secret
+            in the diff or the log, a destructive command, a permission widened;
+          - concurrency and state: a shared mutable value, an await inside a loop, a race,
+            a cache that never expires.
+
+          Verify before you claim: open the file, read the surrounding code, check the
+          caller and the test. Anything you could not verify is a question, not a finding.
         diffCommand: git --no-pager diff HEAD
         statusCommand: git --no-pager status --short
         # The review text is clamped here before it reaches the session; the

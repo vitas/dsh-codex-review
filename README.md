@@ -25,6 +25,27 @@ Because the route is pinned, this is also the way to review with a ChatGPT
 subscription instead of per-token API billing: point `provider` at
 `openai-codex` and the child's calls go through that route's own authentication.
 
+## Type `/review`, nothing else
+
+The command needs no argument. The reviewer arrives with a standing brief — the
+stance (report, never edit a file), a search order (correctness, failure
+handling, contracts, security, concurrency and state), and an evidence bar (a
+claim you could not verify is a question, not a finding) — and the prompt tells
+it how to find something to judge: the change set as it stands, untracked files
+included; the newest commit when the tree is clean; the plausibly touched files
+when the workspace is not a Git repository at all.
+
+Anything you type after the command narrows **what to judge**; it never replaces
+the brief, and it never narrows what the reviewer reads.
+
+```
+/review                                    the change set as a whole
+/review focus on the cache invalidation    the same review, aimed
+```
+
+The brief is the row's `instruction`, so a profile can replace it wholesale —
+the field next to the ones the settings card writes.
+
 ## Install
 
 ```bash

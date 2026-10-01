@@ -166,9 +166,17 @@ test("prompt carries the reviewer framing, the commands, and the focus", () => {
   assert.match(prompt, /git --no-pager diff HEAD/);
   assert.match(prompt, /src\/host\/index\.js/);
   assert.match(prompt, /file:line/);
+  // A bare `/review` is a complete request: the brief forbids touching the code,
+  // and the prompt knows what to do when there is no diff to read.
+  assert.match(prompt, /never edit a file/, "the standing brief forbids changing the code");
+  assert.match(prompt, /Untracked files/, "untracked work counts as part of the change set");
+  assert.match(prompt, /show --stat HEAD/, "a clean tree falls back to the newest commit");
+  assert.match(prompt, /not a Git repository/, "a non-repo workspace is handled, not abandoned");
 
   const bare = buildPrompt(resolveConfig({}), "");
   assert.match(bare, /as a whole/);
+  assert.match(bare, /nothing to review/);
+  assert.doesNotMatch(bare, /focus on:/, "no focus text is invented when the user typed none");
 });
 
 test("output flattening keeps only text blocks", () => {

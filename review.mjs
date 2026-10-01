@@ -24,18 +24,33 @@ export function buildPrompt(config, focus) {
   const lines = [];
   lines.push(config.instruction);
   lines.push("");
-  lines.push("You are running in the repository that was just changed, with the same tools the");
-  lines.push("implementing agent had. Establish the change set first:");
-  if (config.statusCommand) lines.push(`  ${config.statusCommand}`);
-  if (config.diffCommand) lines.push(`  ${config.diffCommand}`);
-  lines.push("Then read the changed files in full before judging them; a diff hides the context");
-  lines.push("that decides whether a change is correct.");
+  lines.push("You are running in the workspace the change was made in, with the same tools the");
+  lines.push("implementing agent had. Establish what to review, in this order:");
+  lines.push("");
+  lines.push("1. The change set as it stands now:");
+  if (config.statusCommand) lines.push(`     ${config.statusCommand}`);
+  if (config.diffCommand) lines.push(`     ${config.diffCommand}`);
+  lines.push("   Untracked files are part of it — a diff does not show them, so read them.");
+  lines.push("2. If the working tree is clean, review the newest commit instead, plus any commits");
+  lines.push("   this branch carries that its base does not:");
+  lines.push("     git --no-pager show --stat HEAD   then   git --no-pager show HEAD");
+  lines.push("3. If this is not a Git repository, review the files the change most plausibly");
+  lines.push("   touched, and name the paths you reviewed in one line.");
+  lines.push("");
+  lines.push("Read every changed file in full before judging it: a diff hides the context that");
+  lines.push("decides whether a change is correct.");
   lines.push("");
   if (focus) {
     lines.push("The user asked you to focus on:");
     lines.push(focus);
+    lines.push("");
+    lines.push("The focus narrows what to judge, not what to read — still establish the change set");
+    lines.push("above. If it names something that does not exist, say so in one line and review the");
+    lines.push("change set instead.");
   } else {
-    lines.push("The user asked for a review of the current change set as a whole.");
+    lines.push("The user gave no focus: review the current change set as a whole. If there is");
+    lines.push("nothing to review — no diff, no recent commit, no files — say exactly that in one");
+    lines.push("line rather than reviewing unrelated code to have something to report.");
   }
   lines.push("");
   lines.push("Report in this order, and keep it tight:");
@@ -69,6 +84,8 @@ export function buildFollowupPrompt(config, focus) {
   lines.push("Re-establish the change set first; the working tree has moved since your last review:");
   if (config.statusCommand) lines.push(`  ${config.statusCommand}`);
   if (config.diffCommand) lines.push(`  ${config.diffCommand}`);
+  lines.push("If the tree is clean now, review the newest commit instead; if this is not a Git");
+  lines.push("repository, review the files the focus names and say which paths you reviewed.");
   lines.push("Then read the changed files in full before judging them.");
   lines.push("");
   if (focus) {
