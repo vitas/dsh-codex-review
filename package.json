@@ -55,6 +55,10 @@
     "subagent"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vitas/dsh-codex-review.git"
+  },
   "peerDependencies": {
     "@deepseek-ai/schemastery": ">=3.18.1"
   },
