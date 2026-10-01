@@ -1,0 +1,67 @@
+# Bundle-layer patch for dsh-codex-review.
+#
+# Applied by the loader when this package is listed in `dsh.profile.bundles`
+# (or installed with `dsh plugin add`), BEFORE the profile's own
+# `cordis.patch.yml`. The user's profile patch addresses the same row by id
+# (`- id: codex-review`) and its `config` REPLACES this one wholesale — a
+# patch's `config` is not deep-merged, so restate every field you want to keep.
+#
+# The reviewer is pinned by `provider` + `model` through the subagent service's
+# `agentOptions`, NOT by the session's route. `openai-codex` is the
+# subscription-backed ChatGPT route; if another plugin owns that route (for
+# example `dsh-codex-auth`, which registers it from the Codex CLI login in
+# ~/.codex/auth.json), nothing else here changes.
+#
+# Verification, in order: `dsh --profile <p> --dump-config` must show this row
+# with no load errors, and `/review` must answer — a route that is declared but
+# has no credentials fails at the first call, in the command result, with the
+# provider's own message.
+
+- insert:
+    - id: codex-review
+      name: dsh-codex-review
+      config:
+        # --- Who reviews ----------------------------------------------------
+        # `backend` names a registered subagent backend, not a model: `spawn`
+        # is the harness's in-process fresh child (empty conversation, same
+        # tools and working directory as the parent), `fork` would inherit this
+        # conversation, and `codex` names the out-of-process Codex CLI backend
+        # when a plugin providing it is installed.
+        backend: spawn
+        # The reviewer's route. Deliberately not the session's own route: the
+        # model that wrote the change is the worst judge of it.
+        provider: openai-codex
+        # Models on the openai-codex route in this build: gpt-5.3-codex-spark
+        # (text only), gpt-5.5, gpt-5.6-luna, gpt-5.6-terra, gpt-5.6-sol,
+        # gpt-6-astra, gpt-6-luna, gpt-6-sol. Run the Models page (or
+        # --dump-config) once after installing the route provider if a call
+        # reports an unknown model id.
+        model: gpt-5.6-sol
+        # null leaves the effort to the route; otherwise one of
+        # off, minimal, low, medium, high, xhigh, max.
+        reasoningEffort: null
+        # 0 forbids the reviewer from delegating further, but the request is
+        # rejected by backends that do not advertise `depthLimit`, so null
+        # (send nothing) is the safe default outside the in-process backends.
+        childMaxDepth: null
+        # Optional per-child persona section; requires the backend's `persona`
+        # capability. The prompt below carries the reviewer's standing
+        # instruction, so this stays null by default.
+        persona: null
+
+        # --- The command ----------------------------------------------------
+        command: review
+        description: Review the current change set with the pinned reviewer model
+        inputHint: "[focus — files, area, or the question you want answered]"
+
+        # --- What the reviewer is told --------------------------------------
+        instruction: >-
+          You are a delegated code reviewer. You did not write this code and you
+          must not change it. Establish what changed, then read the changed files
+          in full — not only the diff hunks. Judge the change against what it
+          claims to do, not against what you would have written.
+        diffCommand: git --no-pager diff HEAD
+        statusCommand: git --no-pager status --short
+        # The review text is clamped here before it reaches the session; the
+        # child session keeps the whole report.
+        maxOutputChars: 40000

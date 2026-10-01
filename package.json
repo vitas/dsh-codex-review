@@ -1,0 +1,42 @@
+{
+  "name": "dsh-codex-review",
+  "version": "0.1.0",
+  "description": "A deterministic /review command for DeepSeek Harness: spawns a reviewer subagent pinned to a subscription-backed Codex model.",
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./config": "./config.mjs",
+    "./review": "./review.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "config.mjs",
+    "review.mjs",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "check": "node --check index.mjs && node --check config.mjs && node --check review.mjs",
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "codex",
+    "review",
+    "subagent"
+  ],
+  "license": "MIT"
+}
