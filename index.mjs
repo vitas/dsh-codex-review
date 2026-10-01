@@ -110,6 +110,33 @@ export function apply(ctx, input = {}) {
 export const REVIEW_LABEL = "reviewer";
 
 /**
+ * Reviewer children this process has retired, keyed by parent session id.
+ *
+ * `/review reset` cannot delete the old child — nothing in the subagent service
+ * removes a session — so it writes the id off here and stops handing it reviews.
+ * The record is deliberately not durable: the next review opens a replacement,
+ * and every review after that finds the replacement as the newest child in the
+ * catalog, so the retired id only has to be remembered until the fresh child
+ * exists. The one visible window is a reset followed by a host restart before
+ * the next review, which re-adopts the earlier session; the README says so.
+ */
+const retiredReviewers = new Map();
+
+/**
+ * True when the text typed after the command is exactly the reset word.
+ *
+ * Only the bare word counts, and only as the whole input: `/review reset the
+ * cache` is a review of the cache, not a reset, because a focus is free text and
+ * "reset" is a plausible thing to review.
+ *
+ * @param text - the raw command input.
+ * @returns whether the command should forget the reviewer instead of reviewing.
+ */
+export function isResetRequest(text) {
+  return typeof text === "string" && /^reset$/i.test(text.trim());
+}
+
+/**
  * Find this session's resident reviewer child, if it has one.
  *
  * The child catalog is durable and needs no Agent resume to read, so this works
@@ -129,7 +156,11 @@ async function findReviewerChild(ctx, invocation, logger) {
     const rows = Array.isArray(listed) ? listed : [];
     // Only continuable rows: a one-shot child from `conversation: fresh` may wear
     // the same label, and it has no inbox to continue.
-    const mine = rows.filter((row) => row && row.mode === "continuable" && row.label === REVIEW_LABEL);
+    const retiredHere = typeof parentId === "string" ? retiredReviewers.get(parentId) : undefined;
+    const mine = rows.filter((row) => row
+      && row.mode === "continuable"
+      && row.label === REVIEW_LABEL
+      && !(retiredHere !== undefined && retiredHere.has(childIdOf(row))));
     return mine.length > 0 ? mine[mine.length - 1] : undefined;
   } catch (error) {
     // A catalog that cannot be read is not a reason to refuse the review; the
@@ -155,6 +186,9 @@ function childIdOf(row) {
  */
 export async function runReview(ctx, config, invocation, logger = console) {
   const focus = typeof invocation.rawInput === "string" ? invocation.rawInput.trim() : "";
+  // The one input that is not a review: it forgets the reviewer instead of
+  // asking it something.
+  if (isResetRequest(focus)) return resetReviewer(ctx, config, invocation, logger);
   // `startContinuable` takes `label`/`signal` at the top level and omits them
   // from `request`, while `start(name, request)` takes both inside it — hence two
   // shapes rather than one.
@@ -247,6 +281,65 @@ async function runShared(ctx, config, invocation, request, focus, logger) {
       text: `The reviewer could not start on ${route} via the "${config.backend}" backend: ${messageOf(error)}`,
     };
   }
+}
+
+/**
+ * Retire this chat's reviewer, so the next review starts with no memory of it.
+ *
+ * The old child is interrupted as well as written off: a review still running
+ * when the user asks to forget it is exactly the one whose answer nobody wants
+ * in the conversation.
+ *
+ * @param ctx - host context.
+ * @param config - resolved configuration.
+ * @param invocation - the command invocation.
+ * @param logger - the host logger.
+ * @returns a `CommandResult` receipt.
+ */
+async function resetReviewer(ctx, config, invocation, logger) {
+  const route = `${config.provider}/${config.model}`;
+  if (config.conversation !== "shared") {
+    return {
+      kind: "success",
+      text: `Nothing to reset: with \`conversation: ${config.conversation}\` every review already`
+        + ` gets its own reviewer, so none of them has a memory (${route}).`,
+    };
+  }
+
+  const existing = await findReviewerChild(ctx, invocation, logger);
+  const childId = childIdOf(existing);
+  if (typeof childId !== "string") {
+    return {
+      kind: "success",
+      text: "No reviewer session exists for this chat yet, so there is no memory to clear."
+        + ` The next /review opens one (${route}).`,
+    };
+  }
+
+  const parentId = invocation?.agent?.session?.id;
+  if (typeof parentId === "string") {
+    const writtenOff = retiredReviewers.get(parentId) ?? new Set();
+    writtenOff.add(childId);
+    retiredReviewers.set(parentId, writtenOff);
+  }
+
+  let stopped = false;
+  if (typeof ctx.subagents?.interrupt === "function") {
+    try {
+      await ctx.subagents.interrupt(childId, invocation.agent);
+      stopped = true;
+    } catch (error) {
+      // An idle child has nothing to interrupt; that is not a reset failure.
+      logger?.warn?.(`${PLUGIN_NAME}: could not interrupt reviewer ${childId}: ${messageOf(error)}`);
+    }
+  }
+  logger.info?.(`${PLUGIN_NAME}: retired reviewer session ${childId}`);
+
+  return {
+    kind: "success",
+    text: `Reviewer memory cleared: ${childId} is retired${stopped ? " and stopped" : ""}.`
+      + ` The next /review opens a fresh reviewer on ${route}, with no memory of the earlier reviews.`,
+  };
 }
 
 /**

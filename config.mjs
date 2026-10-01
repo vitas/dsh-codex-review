@@ -90,7 +90,7 @@ export const DEFAULTS = {
   persona: null,
   command: "review",
   description: "Review the current change set with the pinned reviewer model",
-  inputHint: "[focus — files, area, or the question you want answered]",
+  inputHint: "[focus — files, area, or the question you want answered; \"reset\" forgets the reviewer]",
   instruction: DEFAULT_INSTRUCTION,
   /** Commands the reviewer is told to run first. Set either to null to omit. */
   diffCommand: "git --no-pager diff HEAD",

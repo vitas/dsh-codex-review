@@ -11,14 +11,14 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import { resolveConfig } from "../config.mjs";
-import { REVIEW_LABEL, apply, runReview } from "../index.mjs";
+import { REVIEW_LABEL, apply, isResetRequest, runReview } from "../index.mjs";
 import { buildFollowupPrompt, buildPrompt } from "../review.mjs";
 
 const PARENT = { session: { id: "parent-1" }, marker: "parent" };
 
 /** A context shaped like the host's: catalog listing, delivery, and continuation. */
-function sharedContext({ children = [], onList, onSend, onStart } = {}) {
-  const calls = { listed: [], sent: [], started: [], warnings: [], infos: [] };
+function sharedContext({ children = [], onList, onSend, onStart, onInterrupt } = {}) {
+  const calls = { listed: [], sent: [], started: [], interrupted: [], warnings: [], infos: [] };
   const ctx = {
     logger: {
       info: (line) => calls.infos.push(String(line)),
@@ -43,6 +43,11 @@ function sharedContext({ children = [], onList, onSend, onStart } = {}) {
       },
       start: async () => {
         throw new Error("the one-shot backend must not be reached in shared mode");
+      },
+      interrupt: async (targetId, authority) => {
+        calls.interrupted.push({ targetId, authority });
+        if (onInterrupt) return onInterrupt(targetId, authority);
+        return undefined;
       },
     },
   };
@@ -207,4 +212,88 @@ test("apply re-resolves the live config on every invocation", async () => {
   await registered[0].handler(invocation());
   assert.equal(requests[0].agentOptions.model, "gpt-6-sol");
   assert.equal(requests[1].agentOptions.model, "gpt-5.6-sol");
+});
+
+/** A parent session no other test shares, so reset state cannot leak between them. */
+function otherParent(sessionId) {
+  return { session: { id: sessionId }, marker: sessionId };
+}
+
+function invocationFor(agent, rawInput = "") {
+  return { commandId: "cmd", agent, rawInput, attachments: [], signal: new AbortController().signal };
+}
+
+test("reset: only the whole input is a reset, not a focus that begins with the word", () => {
+  assert.equal(isResetRequest("reset"), true);
+  assert.equal(isResetRequest("  RESET "), true);
+  assert.equal(isResetRequest("reset the cache"), false);
+  assert.equal(isResetRequest(""), false);
+});
+
+test("reset: retires the resident reviewer, and the next review opens a fresh one", async () => {
+  const parent = otherParent("parent-reset-a");
+  const { ctx, calls } = sharedContext({
+    children: [{ id: "old-child", mode: "continuable", label: REVIEW_LABEL, createdAt: 1 }],
+  });
+
+  const reset = await runReview(ctx, resolveConfig({}), invocationFor(parent, "reset"));
+  assert.equal(reset.kind, "success");
+  assert.match(reset.text, /old-child/);
+  assert.match(reset.text, /retired/);
+  assert.deepEqual(calls.interrupted.map((row) => row.targetId), ["old-child"]);
+  assert.equal(calls.interrupted[0].authority, parent, "the interruption is authorised by the parent");
+
+  // The catalog still lists the retired child — nothing deletes it — but the
+  // next review must open a new reviewer instead of writing to it.
+  await runReview(ctx, resolveConfig({}), invocationFor(parent, ""));
+  assert.equal(calls.sent.length, 0, "the retired reviewer is never written to again");
+  assert.equal(calls.started.length, 1, "a fresh reviewer is opened instead");
+});
+
+test("reset: with no resident reviewer it says so instead of opening one", async () => {
+  const { ctx, calls } = sharedContext();
+  const result = await runReview(ctx, resolveConfig({}), invocationFor(otherParent("parent-reset-b"), "reset"));
+  assert.equal(result.kind, "success");
+  assert.match(result.text, /no memory to clear/i);
+  assert.equal(calls.started.length, 0);
+  assert.equal(calls.interrupted.length, 0);
+});
+
+test("reset: a focus that merely starts with the word still reviews", async () => {
+  const parent = otherParent("parent-reset-c");
+  const { ctx, calls } = sharedContext();
+  const result = await runReview(ctx, resolveConfig({}), invocationFor(parent, "reset the cache invalidation"));
+  assert.equal(result.kind, "success");
+  assert.equal(calls.interrupted.length, 0);
+  assert.equal(calls.started.length, 1);
+  assert.match(calls.started[0].request.prompt[0].text, /reset the cache invalidation/);
+});
+
+test("reset: a row with no shared reviewer has nothing to forget", async () => {
+  const { ctx, calls } = sharedContext();
+  const result = await runReview(
+    ctx,
+    resolveConfig({ conversation: "fresh" }),
+    invocationFor(otherParent("parent-reset-d"), "reset"),
+  );
+  assert.match(result.text, /Nothing to reset/);
+  assert.equal(calls.listed.length, 0, "no catalog read is needed when no memory exists");
+});
+
+test("reset: a reviewer that cannot be interrupted is still retired", async () => {
+  const parent = otherParent("parent-reset-e");
+  const { ctx, calls } = sharedContext({
+    children: [{ id: "stuck", mode: "continuable", label: REVIEW_LABEL, createdAt: 1 }],
+    onInterrupt: () => {
+      throw new Error("NOT_RUNNING");
+    },
+  });
+  const result = await runReview(ctx, resolveConfig({}), invocationFor(parent, "reset"), ctx.logger);
+  assert.equal(result.kind, "success");
+  assert.match(result.text, /retired/);
+  assert.doesNotMatch(result.text, /and stopped/, "the receipt does not claim a stop that failed");
+  assert.match(calls.warnings.join("\n"), /could not interrupt reviewer stuck/);
+
+  await runReview(ctx, resolveConfig({}), invocationFor(parent, ""));
+  assert.equal(calls.started.length, 1, "the written-off child is not continued");
 });

@@ -43,7 +43,15 @@ the brief, and it never narrows what the reviewer reads.
 ```
 /review                                    the change set as a whole
 /review focus on the cache invalidation    the same review, aimed
+/review reset                              forget the reviewer: the next review starts fresh
 ```
+
+`/review reset` is the one input that is not a review. The shared reviewer is a
+single session per chat, which is what lets it tell you what moved since last
+time; the bare word `reset` retires that session and stops it if it is still
+working. Only the whole input counts — `/review reset the cache` reviews the
+cache — and nothing deletes the retired session, so a reset followed by a host
+restart *before* the next review re-adopts it.
 
 The brief is the row's `instruction`, so a profile can replace it wholesale —
 the field next to the ones the settings card writes.

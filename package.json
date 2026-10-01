@@ -1,7 +1,7 @@
 {
   "name": "dsh-codex-review",
-  "version": "0.3.0",
-  "description": "A deterministic /review command for DeepSeek Harness: a reviewer subagent pinned to a subscription-backed Codex model, with a settings card and one reviewer session per chat.",
+  "version": "0.4.0",
+  "description": "A deterministic /review command for DeepSeek Harness: a reviewer subagent pinned to a subscription-backed Codex model, with a settings card, one reviewer session per chat, and /review reset to forget it.",
   "type": "module",
   "main": "./index.mjs",
   "exports": {

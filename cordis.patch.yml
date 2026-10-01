@@ -65,7 +65,7 @@
         # --- The command ----------------------------------------------------
         command: review
         description: Review the current change set with the pinned reviewer model
-        inputHint: "[focus — files, area, or the question you want answered]"
+        inputHint: "[focus — files, area, or the question you want answered; \"reset\" forgets the reviewer]"
 
         # --- What the reviewer is told --------------------------------------
         # The default brief, so that a bare `/review` is a complete request: the

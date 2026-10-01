@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0
+
+- **`/review reset` forgets the reviewer.** The shared reviewer is one
+  continuable session per chat, so it carries every revision it has already
+  judged. The bare word `reset` retires that session — the next `/review` opens a
+  fresh one with no memory of the earlier reviews — and stops it if a review is
+  still running, because that is the answer nobody is waiting for. Only the whole
+  input counts, so `/review reset the cache` is still a review of the cache, and
+  a row in `fresh` mode reports that it has nothing to forget.
+- The retired child is not deleted: nothing in the subagent service removes a
+  session, so the plugin writes its id off for the rest of the process. That is
+  enough, because the next review opens the replacement that later discovery
+  finds anyway. A reset followed by a host restart *before* the next review is
+  the one case that re-adopts the earlier session, and the README says so.
+
 ## 0.3.0
 
 - **A bare `/review` is now a complete request.** The shipped `instruction` —
